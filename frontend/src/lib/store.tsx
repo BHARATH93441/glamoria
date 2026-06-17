@@ -1,7 +1,7 @@
-import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { PRODUCTS, type Product } from "./products";
 import {
-  authApi, cartApi, wishlistApi, addressesApi, ordersApi,
+  authApi, cartApi, wishlistApi, addressesApi, ordersApi, productsApi, type ApiProduct,
   type AuthUser, type CartItem as ApiCartItem, type Address as ApiAddress, type ApiOrder,
 } from "./api";
 
@@ -27,6 +27,7 @@ type StoreCtx = {
   user: AuthUser | null;
   addresses: Address[];
   loading: boolean;
+  productCache: Map<string, Product>;
   addToCart: (i: CartItem) => Promise<void>;
   updateQty: (idx: number, qty: number) => Promise<void>;
   removeFromCart: (idx: number) => Promise<void>;
@@ -51,9 +52,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [user, setUserState] = useState<AuthUser | null>(null);
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [loading, setLoading] = useState(true);
+  const [productCache, setProductCache] = useState<Map<string, Product>>(new Map());
 
   // ── Load from DB on mount (if cookie is valid) ──────────────────────────
   useEffect(() => {
+    // Always load product cache regardless of auth
+    productsApi.list().then(res => {
+      const map = new Map<string, Product>();
+      res.products.forEach((p: ApiProduct) => {
+        map.set(p._id, {
+          id: p._id, name: p.name, brand: p.brand, category: p.category,
+          type: p.type, tags: p.tags, price: p.price, mrp: p.mrp,
+          rating: p.rating ?? 4.0, reviews: p.reviews ?? 0,
+          sizes: p.sizes, colors: p.colors, images: p.images,
+          description: p.description, stock: p.stock, season: p.season,
+        });
+      });
+      setProductCache(map);
+    }).catch(() => {});
+
     (async () => {
       try {
         const { user: me } = await authApi.me();
@@ -192,7 +209,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   const value: StoreCtx = {
-    cart, wishlist, orders, user, addresses, loading,
+    cart, wishlist, orders, user, addresses, loading, productCache,
     addToCart, updateQty, removeFromCart, clearCart,
     toggleWishlist, inWishlist,
     placeOrder,
@@ -211,8 +228,11 @@ export function useStore() {
 
 // ── Cart totals helper ────────────────────────────────────────────────────────
 
-export function cartTotals(cart: CartItem[]) {
-  const items = cart.map(i => ({ ...i, product: PRODUCTS.find(p => p.id === i.productId)! })).filter(i => i.product);
+export function cartTotals(cart: CartItem[], productCache?: Map<string, Product>) {
+  const items = cart.map(i => {
+    const product = productCache?.get(i.productId) || PRODUCTS.find(p => p.id === i.productId);
+    return product ? { ...i, product } : null;
+  }).filter(Boolean) as Array<CartItem & { product: Product }>;
   const subtotal = items.reduce((s, i) => s + i.product.mrp * i.qty, 0);
   const discount = items.reduce((s, i) => s + (i.product.mrp - i.product.price) * i.qty, 0);
   const afterDisc = subtotal - discount;

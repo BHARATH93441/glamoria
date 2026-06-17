@@ -1,28 +1,87 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { getProduct, inr, PRODUCTS } from "@/lib/products";
+import { getProduct, inr, PRODUCTS, type Product } from "@/lib/products";
 import { useStore } from "@/lib/store";
 import { Heart, ShoppingBag, Star, Truck, RefreshCw, ShieldCheck, Minus, Plus } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { ProductCard } from "@/components/glamora/ProductCard";
 import { toast } from "sonner";
+import { productsApi, type ApiProduct } from "@/lib/api";
 
 export const Route = createFileRoute("/product/$id")({
   component: ProductPage,
   notFoundComponent: () => <div className="py-20 text-center">Product not found</div>,
 });
 
+// Convert ApiProduct (DB) to Product shape
+function apiToProduct(p: ApiProduct): Product {
+  return {
+    id: p._id,
+    name: p.name,
+    brand: p.brand,
+    category: p.category,
+    type: p.type,
+    tags: p.tags,
+    price: p.price,
+    mrp: p.mrp,
+    rating: p.rating ?? 4.0,
+    reviews: p.reviews ?? 0,
+    sizes: p.sizes,
+    colors: p.colors,
+    images: p.images,
+    description: p.description,
+    stock: p.stock,
+    season: p.season,
+  };
+}
+
 function ProductPage() {
   const { id } = Route.useParams();
-  const product = getProduct(id);
   const { addToCart, toggleWishlist, inWishlist } = useStore();
   const nav = useNavigate();
+
+  // Try static lookup first; fallback to DB fetch for admin-added products
+  const staticProduct = getProduct(id);
+  const [product, setProduct] = useState<Product | null | undefined>(staticProduct);
+  const [loadingDb, setLoadingDb] = useState(!staticProduct);
+
+  useEffect(() => {
+    if (staticProduct) {
+      setProduct(staticProduct);
+      setLoadingDb(false);
+      return;
+    }
+    // Not found in static list — try fetching from DB (admin-added product)
+    setLoadingDb(true);
+    productsApi.getById(id)
+      .then(res => setProduct(apiToProduct(res.product)))
+      .catch(() => setProduct(null))
+      .finally(() => setLoadingDb(false));
+  }, [id]);
+
   const [img, setImg] = useState(0);
-  const [size, setSize] = useState<string>(product?.sizes[1] || "");
-  const [color, setColor] = useState<string>(product?.colors[0].name || "");
+  const [size, setSize] = useState<string>("");
+  const [color, setColor] = useState<string>("");
   const [qty, setQty] = useState(1);
 
+  // Update size/color when product loads
+  useEffect(() => {
+    if (product) {
+      setSize(product.sizes[1] || product.sizes[0] || "");
+      setColor(product.colors[0]?.name || "");
+    }
+  }, [product]);
+
+  if (loadingDb) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="size-8 rounded-full border-4 border-primary border-t-transparent animate-spin" />
+      </div>
+    );
+  }
+
   if (!product) return <div className="py-20 text-center">Product not found</div>;
+
   const off = Math.round(((product.mrp - product.price) / product.mrp) * 100);
   const similar = PRODUCTS.filter(p => p.category === product.category && p.id !== product.id).slice(0, 4);
 
@@ -35,8 +94,8 @@ function ProductPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="grid md:grid-cols-2 gap-10">
-        <div>
-          <motion.div key={img} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="aspect-[3/4] rounded-2xl overflow-hidden bg-secondary group">
+        <div className="w-[90%]">
+          <motion.div key={img} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="aspect-[2/3] rounded-2xl overflow-hidden bg-secondary group">
             <img src={product.images[img]} alt={product.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
           </motion.div>
           <div className="flex gap-2 mt-3">

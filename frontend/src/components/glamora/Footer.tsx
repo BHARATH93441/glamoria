@@ -36,13 +36,13 @@ export function Footer() {
           </ul>
         </div>
         <div>
-          <h4 className="font-semibold mb-3 text-sm uppercase tracking-wide">Newsletter</h4>
+          <h4 className="font-semibold mb-3 text-sm uppercase tracking-wide">News letter</h4>
           <form onSubmit={(e) => { e.preventDefault(); if (email) { toast.success("Subscribed! Welcome to Glamora"); setEmail(""); } }} className="flex gap-2 mb-4">
             <input value={email} onChange={e => setEmail(e.target.value)} type="email" placeholder="Your email" className="flex-1 bg-background rounded-lg px-3 py-2 text-sm border" />
             <button className="bg-primary text-primary-foreground rounded-lg px-4 text-sm font-medium hover:opacity-90">Join</button>
           </form>
           <ul className="space-y-2 text-sm text-muted-foreground">
-            <li className="flex gap-2 items-center"><Mail className="size-4" /> hello@glamora.com</li>
+            <li className="flex gap-2 items-center"><Mail className="size-4" /> Glamora@gmail.com</li>
             <li className="flex gap-2 items-center"><Phone className="size-4" /> +91 98765 43210</li>
             <li className="flex gap-2 items-center"><MapPin className="size-4" /> Mumbai, India</li>
           </ul>

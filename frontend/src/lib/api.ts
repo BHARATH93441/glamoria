@@ -163,6 +163,8 @@ export const addressesApi = {
 export const productsApi = {
   list: () => request<{ products: ApiProduct[] }>("/api/products"),
 
+  getById: (id: string) => request<{ product: ApiProduct }>(`/api/products/${id}`),
+
   add: (body: Omit<ApiProduct, "_id" | "addedBy" | "rating" | "reviews">) =>
     request<{ product: ApiProduct }>("/api/products", {
       method: "POST",
@@ -171,6 +173,12 @@ export const productsApi = {
 
   delete: (id: string) =>
     request<{ message: string }>(`/api/products/${id}`, { method: "DELETE" }),
+
+  update: (id: string, body: Partial<Omit<ApiProduct, "_id" | "addedBy" | "rating" | "reviews">>) =>
+    request<{ product: ApiProduct }>(`/api/products/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
 };
 
 // ── Orders ──────────────────────────────────────────────────────────────────

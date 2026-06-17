@@ -89,6 +89,13 @@ router.post("/login", async (req: Request, res: Response) => {
       return;
     }
 
+    // Grant admin role to the designated admin account
+    const ADMIN_EMAIL = "bharath@gmail.com";
+    if (user.email === ADMIN_EMAIL && user.role !== "admin") {
+      user.role = "admin";
+      await user.save();
+    }
+
     const token = signToken({ id: user._id.toString(), email: user.email, name: user.name, role: user.role });
     res.cookie("token", token, COOKIE_OPTIONS);
     res.json({ user: userPayload(user) });

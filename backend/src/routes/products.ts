@@ -50,6 +50,59 @@ router.post("/", requireAuth, async (req: AuthRequest, res: Response) => {
   }
 });
 
+// GET /api/products/:id — get a single product by ID (public)
+router.get("/:id", async (req: Request, res: Response) => {
+  try {
+    const product = await Product.findById(req.params.id);
+    if (!product) {
+      res.status(404).json({ error: "Product not found" });
+      return;
+    }
+    res.json({ product });
+  } catch (err) {
+    console.error("Get product error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// PUT /api/products/:id — update a product (admin only)
+router.put("/:id", requireAuth, async (req: AuthRequest, res: Response) => {
+  try {
+    const { name, brand, category, type, tags, price, mrp, sizes, colors, images, description, stock, season } =
+      req.body;
+
+    const updated = await Product.findByIdAndUpdate(
+      req.params.id,
+      {
+        ...(name && { name }),
+        ...(brand && { brand }),
+        ...(category && { category }),
+        ...(type && { type }),
+        ...(tags && { tags }),
+        ...(price !== undefined && { price: Number(price) }),
+        ...(mrp !== undefined && { mrp: Number(mrp) }),
+        ...(sizes && { sizes }),
+        ...(colors && { colors }),
+        ...(images && { images }),
+        ...(description !== undefined && { description }),
+        ...(stock !== undefined && { stock: Number(stock) }),
+        ...(season !== undefined && { season }),
+      },
+      { new: true }
+    );
+
+    if (!updated) {
+      res.status(404).json({ error: "Product not found" });
+      return;
+    }
+
+    res.json({ product: updated });
+  } catch (err) {
+    console.error("Update product error:", err);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // DELETE /api/products/:id — delete a product (admin only)
 router.delete("/:id", requireAuth, async (req: AuthRequest, res: Response) => {
   try {

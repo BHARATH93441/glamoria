@@ -42,7 +42,7 @@ function ContactPage() {
         {/* Contact info */}
         <div className="space-y-4">
           {[
-            { I: Mail, t: "Email Us", s: "hello@glamora.com", sub: "We reply within 24 hours" },
+            { I: Mail, t: "Email Us", s: "Glamora@gmail.com.com", sub: "We reply within 24 hours" },
             { I: Phone, t: "Call Us", s: "+91 98765 43210", sub: "Mon – Sat, 10am – 7pm IST" },
             { I: MapPin, t: "Visit Us", s: "Bandra West, Mumbai", sub: "Maharashtra, India 400050" },
           ].map(({ I, t, s, sub }) => (

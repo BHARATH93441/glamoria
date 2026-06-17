@@ -1,14 +1,16 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useStore } from "@/lib/store";
-import { getProduct } from "@/lib/products";
 import { ProductCard } from "@/components/glamora/ProductCard";
 import { Heart } from "lucide-react";
 
 export const Route = createFileRoute("/wishlist")({ component: WishlistPage });
 
 function WishlistPage() {
-  const { wishlist } = useStore();
-  const products = wishlist.map(getProduct).filter(Boolean) as ReturnType<typeof getProduct>[] as any[];
+  const { wishlist, productCache } = useStore();
+  const products = wishlist
+    .map(id => productCache.get(id))
+    .filter(Boolean) as ReturnType<typeof productCache.get>[] as any[];
+
   return (
     <div className="max-w-7xl mx-auto px-4 py-10">
       <h1 className="font-display text-3xl font-bold mb-6">My Wishlist</h1>

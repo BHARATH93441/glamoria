@@ -1,7 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { cartTotals, useStore } from "@/lib/store";
-import { inr, PRODUCTS } from "@/lib/products";
-import { ProductCard } from "@/components/glamora/ProductCard";
+import { inr } from "@/lib/products";
 import { Minus, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -9,8 +8,8 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/cart")({ component: CartPage });
 
 function CartPage() {
-  const { cart, updateQty, removeFromCart } = useStore();
-  const totals = cartTotals(cart);
+  const { cart, updateQty, removeFromCart, productCache } = useStore();
+  const totals = cartTotals(cart, productCache);
   const [coupon, setCoupon] = useState("");
   const [extra, setExtra] = useState(0);
   const nav = useNavigate();
@@ -91,12 +90,6 @@ function CartPage() {
         </aside>
       </div>
 
-      <div className="mt-14">
-        <h2 className="font-display text-2xl font-bold mb-5">You may also like</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-          {PRODUCTS.slice(10, 14).map(p => <ProductCard key={p.id} product={p} />)}
-        </div>
-      </div>
     </div>
   );
 }

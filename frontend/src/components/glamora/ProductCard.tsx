@@ -19,7 +19,7 @@ export function ProductCard({ product }: { product: Product }) {
       className="group card-hover rounded-2xl overflow-hidden bg-card border"
     >
       <Link to="/product/$id" params={{ id: product.id }} className="block relative">
-        <div className="aspect-[3/4] overflow-hidden bg-secondary">
+        <div className="aspect-[3/5] overflow-hidden bg-secondary">
           <img
             src={product.images[0]}
             alt={product.name}

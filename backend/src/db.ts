@@ -4,7 +4,7 @@ const MONGODB_URI = process.env.MONGODB_URI!;
 const MONGODB_DB = process.env.MONGODB_DB || "glamoria";
 
 let isConnected = false;
-
+console.log(`🔗 Attempting to connect to MongoDB at: ${MONGODB_URI}`);
 export async function connectDB() {
   if (isConnected) return;
 
@@ -13,7 +13,7 @@ export async function connectDB() {
     isConnected = true;
     console.log(`✅ MongoDB connected — db: ${MONGODB_DB}`);
   } catch (err) {
-    console.error("❌ MongoDB connection failed:", (err as Error).message);
+  console.error("MongoDB Error:", err);
     console.log("🔄 Attempting fallback to local MongoDB (mongodb://127.0.0.1:27017/)...");
     try {
       await mongoose.connect("mongodb://127.0.0.1:27017/", { dbName: MONGODB_DB, serverSelectionTimeoutMS: 3000 });

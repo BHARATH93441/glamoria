@@ -84,9 +84,11 @@ export function Navbar() {
               <ShoppingBag className="size-5" />
               {cart.length > 0 && <span className="absolute top-1 right-1 bg-primary text-primary-foreground text-[10px] rounded-full size-4 grid place-items-center">{cart.length}</span>}
             </Link>
-            <Link to="/admin" className="inline-flex relative left-3 items-center gap-2 text-sm border rounded-full px-4 py-2 hover:bg-secondary">
-              🛠️ Admin Panel
-            </Link>
+            {user?.role === "admin" && (
+              <Link to="/admin" className="inline-flex relative left-3 items-center gap-2 text-sm border rounded-full px-4 py-2 hover:bg-secondary">
+                🛠️ Admin Panel
+              </Link>
+            )}
           </div>
         </div>
       </header>

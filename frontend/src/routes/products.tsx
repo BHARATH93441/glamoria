@@ -1,11 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { CATEGORIES, filterProducts } from "@/lib/products";
+import { useEffect, useMemo, useState } from "react";
+import { CATEGORIES, filterProducts, type Product } from "@/lib/products";
 import { ProductCard } from "@/components/glamora/ProductCard";
 import { motion } from "framer-motion";
 import { SlidersHorizontal, X } from "lucide-react";
 import { z } from "zod";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
+import { productsApi, type ApiProduct } from "@/lib/api";
 
 const search = z.object({
   q: fallback(z.string().optional(), undefined),
@@ -18,7 +19,29 @@ export const Route = createFileRoute("/products")({
   component: ProductsPage,
 });
 
-const TYPES = ["T-Shirt","Shirt","Kurti","Saree","Jeans","Dress","Hoodie","Jacket","Blazer","Kurta","Top"];
+// Convert a DB ApiProduct to the frontend Product shape
+function apiToProduct(p: ApiProduct): Product {
+  return {
+    id: p._id,
+    name: p.name,
+    brand: p.brand,
+    category: p.category,
+    type: p.type,
+    tags: p.tags,
+    price: p.price,
+    mrp: p.mrp,
+    rating: p.rating ?? 4.0,
+    reviews: p.reviews ?? 0,
+    sizes: p.sizes,
+    colors: p.colors,
+    images: p.images,
+    description: p.description,
+    stock: p.stock,
+    season: p.season,
+  };
+}
+
+const TYPES = ["Topwear", "Bottomwear", "Saree", "Kids"];
 const SIZES = ["S","M","L","XL","XXL"];
 const COLORS = ["Black","White","Blue","Pink","Red","Green","Yellow"];
 const PRICE_BUCKETS = [
@@ -40,6 +63,14 @@ function ProductsPage() {
   const [minRating, setMinRating] = useState<number>(0);
   const [inStock, setInStock] = useState(false);
   const [openFilters, setOpenFilters] = useState(false);
+  const [dbProducts, setDbProducts] = useState<Product[]>([]);
+
+  // Fetch admin-added DB products and merge them into the list
+  useEffect(() => {
+    productsApi.list().then(res => {
+      setDbProducts(res.products.map(apiToProduct));
+    }).catch(() => {/* silently ignore if API is down */});
+  }, []);
 
   const products = useMemo(() => filterProducts({
     q,
@@ -52,7 +83,8 @@ function ProductsPage() {
     minRating: minRating || undefined,
     inStock: inStock || undefined,
     sort: sort === "popularity" ? undefined : sort,
-  }), [activeCat, q, sort, types, sizes, colors, priceIdx, minRating, inStock]);
+    extraProducts: dbProducts,
+  }), [activeCat, q, sort, types, sizes, colors, priceIdx, minRating, inStock, dbProducts]);
 
   const setCat = (slug: string) =>
     navigate({ to: "/products", search: (prev: any) => ({ ...prev, cat: slug === "all" ? undefined : slug }) });
@@ -159,7 +191,9 @@ function ProductsPage() {
           </div>
           {products.length === 0 ? (
             <div className="text-center py-20">
-              <p className="text-muted-foreground">No products match your filters.</p>
+              <p className="text-4xl mb-3">🛍️</p>
+              <p className="text-muted-foreground font-medium">No products found.</p>
+              <p className="text-sm text-muted-foreground mt-1">Try adjusting your filters or check back later.</p>
             </div>
           ) : (
             <motion.div layout className="grid grid-cols-2 md:grid-cols-3 gap-5">

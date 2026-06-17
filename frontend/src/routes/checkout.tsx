@@ -14,8 +14,8 @@ const PAYMENTS = [
 ];
 
 function CheckoutPage() {
-  const { cart, placeOrder, clearCart, user, loading, addresses, saveAddress } = useStore();
-  const totals = cartTotals(cart);
+  const { cart, placeOrder, clearCart, user, loading, addresses, saveAddress, productCache } = useStore();
+  const totals = cartTotals(cart, productCache);
   const nav = useNavigate();
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [address, setAddress] = useState<Address>({ fullName: "", mobile: "", email: "", address: "", city: "", state: "", pincode: "" });
