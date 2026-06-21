@@ -20,7 +20,7 @@ const PORT = Number(process.env.PORT) || 5000;
 // ── Middleware ──────────────────────────────────────────────────────────────
 app.use(
   cors({
-    origin: ["http://localhost:5173", "http://localhost:3000"],
+    origin: ["http://localhost:5173", "http://localhost:3000","https://glamoria.onrender.com","https://glamoria-backend.onrender.com"],
     credentials: true,   // Required for cookies to work cross-origin
   })
 );
