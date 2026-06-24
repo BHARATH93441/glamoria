@@ -6,11 +6,16 @@ import { requireAuth, AuthRequest } from "../middleware/auth";
 
 const router = Router();
 
+// On Render, frontend (glamoria.onrender.com) and backend (glamoria-backend.onrender.com)
+// are cross-origin. Browsers block cookies with sameSite:"lax" on cross-origin fetch.
+// Production MUST use sameSite:"none" + secure:true so cookies are sent with credentials.
+const IS_PROD = process.env.NODE_ENV === "production";
+
 const COOKIE_OPTIONS: CookieOptions = {
   httpOnly: true,
-  secure: false,          // set to true in production with HTTPS
-  sameSite: "lax",
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  secure: IS_PROD,                         // HTTPS required for sameSite:"none"
+  sameSite: IS_PROD ? "none" : "lax",     // "none" required for cross-origin on Render
+  maxAge: 7 * 24 * 60 * 60 * 1000,        // 7 days
   path: "/",
 };
 
@@ -107,7 +112,13 @@ router.post("/login", async (req: Request, res: Response) => {
 
 // POST /api/auth/logout
 router.post("/logout", (_req: Request, res: Response) => {
-  res.clearCookie("token", { path: "/" });
+  // Must use same sameSite/secure options as set, otherwise the browser won't clear it
+  res.clearCookie("token", {
+    httpOnly: true,
+    secure: IS_PROD,
+    sameSite: IS_PROD ? "none" : "lax",
+    path: "/",
+  });
   res.json({ message: "Logged out" });
 });
 
