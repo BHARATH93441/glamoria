@@ -25,6 +25,8 @@ export interface IOrder extends Document {
   payment: string;
   address: Address;
   status: "Placed" | "Shipped" | "Delivered" | "Cancelled";
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
   createdAt: Date;
 }
 
@@ -56,6 +58,8 @@ const OrderSchema = new Schema<IOrder>(
       enum: ["Placed", "Shipped", "Delivered", "Cancelled"],
       default: "Placed",
     },
+    razorpayOrderId: { type: String },
+    razorpayPaymentId: { type: String },
   },
   { timestamps: true }
 );

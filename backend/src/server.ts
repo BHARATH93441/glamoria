@@ -20,8 +20,6 @@ const PORT = Number(process.env.PORT) || 5000;
 // ── Middleware ──────────────────────────────────────────────────────────────
 // Allowed origins — add FRONTEND_URL in Render env vars if your frontend URL differs
 const ALLOWED_ORIGINS = [
-  "http://localhost:5173",
-  "http://localhost:3000",
   "https://glamoria.onrender.com",
   process.env.FRONTEND_URL, // set this in Render dashboard if needed
 ].filter(Boolean) as string[];
@@ -31,6 +29,8 @@ app.use(
     origin: (origin, callback) => {
       // Allow requests with no origin (mobile apps, curl, server-to-server)
       if (!origin) return callback(null, true);
+      // Allow any localhost port in development (Vite can pick 5173, 5174, etc.)
+      if (/^http:\/\/localhost(:\d+)?$/.test(origin)) return callback(null, true);
       if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
       callback(new Error(`CORS: origin ${origin} not allowed`));
     },
