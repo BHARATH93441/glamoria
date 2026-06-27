@@ -35,6 +35,7 @@ type StoreCtx = {
   toggleWishlist: (id: string) => Promise<void>;
   inWishlist: (id: string) => boolean;
   placeOrder: (o: Omit<Order, "id" | "date" | "status">) => Promise<Order>;
+  addOrder: (o: Order) => void;
   setUser: (u: AuthUser | null) => void;
   logout: () => Promise<void>;
   saveAddress: (a: Omit<Address, "_id">) => Promise<void>;
@@ -194,6 +195,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return order;
   };
 
+  /** Push an already-created order (e.g. from Razorpay verify) into local state */
+  const addOrder = (o: Order) => {
+    setOrders(prev => [o, ...prev]);
+  };
+
   // ── Addresses ─────────────────────────────────────────────────────────────
 
   const saveAddress = async (a: Omit<Address, "_id">) => {
@@ -212,7 +218,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     cart, wishlist, orders, user, addresses, loading, productCache,
     addToCart, updateQty, removeFromCart, clearCart,
     toggleWishlist, inWishlist,
-    placeOrder,
+    placeOrder, addOrder,
     setUser, logout,
     saveAddress, removeAddress,
   };

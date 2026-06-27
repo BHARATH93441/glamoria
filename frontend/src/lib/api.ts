@@ -183,6 +183,22 @@ export const productsApi = {
 
 // ── Orders ──────────────────────────────────────────────────────────────────
 
+export interface RazorpayOrderResponse {
+  orderId: string;
+  amount: number;
+  currency: string;
+  keyId: string;
+}
+
+export interface RazorpayVerifyPayload {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+  items: CartItem[];
+  total: number;
+  address: Address;
+}
+
 export const ordersApi = {
   list: () => request<{ orders: ApiOrder[] }>("/api/orders"),
 
@@ -191,4 +207,19 @@ export const ordersApi = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+
+  /** Step 1 of Razorpay flow — create a Razorpay order on the server */
+  createRazorpayOrder: (amount: number) =>
+    request<RazorpayOrderResponse>("/api/orders/create-razorpay-order", {
+      method: "POST",
+      body: JSON.stringify({ amount }),
+    }),
+
+  /** Step 2 of Razorpay flow — verify HMAC signature and persist DB order */
+  verifyRazorpay: (payload: RazorpayVerifyPayload) =>
+    request<{ order: ApiOrder }>("/api/orders/verify-razorpay", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 };
+

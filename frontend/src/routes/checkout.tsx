@@ -5,8 +5,36 @@ import { inr } from "@/lib/products";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, CreditCard, Truck, ShieldCheck, Lock } from "lucide-react";
 import { toast } from "sonner";
+import { ordersApi } from "@/lib/api";
 
 export const Route = createFileRoute("/checkout")({ component: CheckoutPage });
+
+// Declare Razorpay global from the checkout.js CDN script
+declare global {
+  interface Window {
+    Razorpay: new (options: RazorpayOptions) => RazorpayInstance;
+  }
+}
+interface RazorpayOptions {
+  key: string;
+  amount: number;
+  currency: string;
+  name: string;
+  description: string;
+  image?: string;
+  order_id: string;
+  handler: (response: {
+    razorpay_payment_id: string;
+    razorpay_order_id: string;
+    razorpay_signature: string;
+  }) => void;
+  prefill?: { name?: string; email?: string; contact?: string };
+  theme?: { color?: string };
+  modal?: { ondismiss?: () => void };
+}
+interface RazorpayInstance {
+  open(): void;
+}
 
 const PAYMENTS = [
   { id: "razorpay", label: "Razorpay (Cards, UPI, Wallets)", I: CreditCard },
@@ -14,7 +42,7 @@ const PAYMENTS = [
 ];
 
 function CheckoutPage() {
-  const { cart, placeOrder, clearCart, user, loading, addresses, saveAddress, productCache } = useStore();
+  const { cart, placeOrder, addOrder, clearCart, user, loading, addresses, saveAddress, productCache } = useStore();
   const totals = cartTotals(cart, productCache);
   const nav = useNavigate();
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -39,14 +67,13 @@ function CheckoutPage() {
     );
   }
 
-  if (!user) {
-    return null;
-  }
+  if (!user) return null;
 
   if (cart.length === 0) {
     return <div className="max-w-3xl mx-auto px-4 py-20 text-center">Your cart is empty.</div>;
   }
 
+  // ── Step 1: Address submission ───────────────────────────────────────────
   const submitAddress = async (e: React.FormEvent) => {
     e.preventDefault();
     const required: (keyof Address)[] = ["fullName","mobile","email","address","city","state","pincode"];
@@ -55,7 +82,7 @@ function CheckoutPage() {
     if (!/^\d{6}$/.test(address.pincode)) return toast.error("Enter a valid 6-digit pincode");
 
     if (saveThisAddress) {
-      const exists = addresses.some(a => 
+      const exists = addresses.some(a =>
         a.fullName === address.fullName &&
         a.mobile === address.mobile &&
         a.address === address.address &&
@@ -81,19 +108,91 @@ function CheckoutPage() {
     setStep(2);
   };
 
+  // ── Step 3: Payment ───────────────────────────────────────────────────────
   const pay = async () => {
     setProcessing(true);
-    const delay = payment === "razorpay" ? 2000 : 1200;
+
     try {
-      await new Promise(r => setTimeout(r, delay));
-      const order = await placeOrder({
-        items: cart,
-        total: totals.total,
-        payment: PAYMENTS.find(p => p.id === payment)!.label,
-        address,
-      });
-      clearCart();
-      nav({ to: "/order-success", search: { id: order.id } as any });
+      if (payment === "cod") {
+        // ── Cash on Delivery path (unchanged) ─────────────────────────────
+        const order = await placeOrder({
+          items: cart,
+          total: totals.total,
+          payment: PAYMENTS.find(p => p.id === payment)!.label,
+          address,
+        });
+        await clearCart();
+        nav({ to: "/order-success", search: { id: order.id } as any });
+        return;
+      }
+
+      // ── Razorpay path ─────────────────────────────────────────────────────
+      // Step 1: Create Razorpay order on the backend
+      let razorpayOrder;
+      try {
+        razorpayOrder = await ordersApi.createRazorpayOrder(totals.total);
+      } catch (err: any) {
+        toast.error(err.message || "Could not initiate payment. Please try again.");
+        setProcessing(false);
+        return;
+      }
+
+      // Step 2: Open Razorpay checkout modal
+      const options: RazorpayOptions = {
+        key: razorpayOrder.keyId,
+        amount: razorpayOrder.amount,
+        currency: razorpayOrder.currency,
+        name: "Glamora",
+        description: "Fashion purchase",
+        order_id: razorpayOrder.orderId,
+        prefill: {
+          name: user?.name || address.fullName,
+          email: user?.email || address.email,
+          contact: address.mobile,
+        },
+        theme: { color: "#E91E63" },
+        handler: async (response) => {
+          // Step 3: Verify payment signature on backend and create DB order
+          try {
+            const res = await ordersApi.verifyRazorpay({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              items: cart,
+              total: totals.total,
+              address,
+            });
+
+            // Add the verified order into local store state
+            addOrder({
+              id: res.order._id,
+              date: res.order.createdAt,
+              items: res.order.items,
+              total: res.order.total,
+              payment: res.order.payment,
+              address: res.order.address,
+              status: res.order.status,
+            });
+
+            // Update local orders store
+            await clearCart();
+            nav({ to: "/order-success", search: { id: res.order._id } as any });
+          } catch (err: any) {
+            toast.error(err.message || "Payment verification failed. Contact support.");
+            setProcessing(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            toast.info("Payment cancelled. You can retry anytime.");
+            setProcessing(false);
+          },
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+      // Don't reset processing here — it resets in handler / ondismiss
     } catch (err: any) {
       toast.error(err.message || "Payment failed, please try again");
       setProcessing(false);
@@ -102,6 +201,7 @@ function CheckoutPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-10">
+      {/* Step indicator */}
       <div className="flex items-center justify-center gap-2 sm:gap-6 mb-10">
         {["Address","Review","Payment"].map((label, i) => {
           const n = (i + 1) as 1 | 2 | 3;
@@ -119,6 +219,7 @@ function CheckoutPage() {
       </div>
 
       <AnimatePresence mode="wait">
+        {/* ── Step 1: Address ── */}
         {step === 1 && (
           <motion.form key="1" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} onSubmit={submitAddress} className="bg-card border rounded-2xl p-6 grid sm:grid-cols-2 gap-4">
             {addresses.length > 0 && (
@@ -171,6 +272,7 @@ function CheckoutPage() {
           </motion.form>
         )}
 
+        {/* ── Step 2: Order Review ── */}
         {step === 2 && (
           <motion.div key="2" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="space-y-4">
             <div className="bg-card border rounded-2xl p-6">
@@ -203,6 +305,7 @@ function CheckoutPage() {
           </motion.div>
         )}
 
+        {/* ── Step 3: Payment ── */}
         {step === 3 && (
           <motion.div key="3" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="grid md:grid-cols-2 gap-6">
             <div className="bg-card border rounded-2xl p-6">
@@ -241,14 +344,25 @@ function CheckoutPage() {
 
             <div className="bg-card border rounded-2xl p-6 h-fit">
               <h3 className="font-semibold mb-3">Payable</h3>
-              <div className="text-3xl font-bold mb-4">{inr(totals.total)}</div>
-              <button disabled={processing} onClick={pay}
-                className="w-full bg-primary text-primary-foreground rounded-full py-3 font-medium hover:opacity-90 disabled:opacity-60">
-                {processing
-                  ? "Processing payment…"
-                  : payment === "razorpay"
-                    ? `Pay ${inr(totals.total)} with Razorpay`
-                    : `Place Order · ${inr(totals.total)}`}
+              <div className="text-3xl font-bold mb-1">{inr(totals.total)}</div>
+              <p className="text-xs text-muted-foreground mb-5">inclusive of all taxes & shipping</p>
+
+              <button
+                disabled={processing}
+                onClick={pay}
+                id="razorpay-pay-btn"
+                className="w-full bg-primary text-primary-foreground rounded-full py-3 font-medium hover:opacity-90 disabled:opacity-60 flex items-center justify-center gap-2 transition-all"
+              >
+                {processing ? (
+                  <>
+                    <span className="size-4 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                    {payment === "razorpay" ? "Opening Razorpay…" : "Placing Order…"}
+                  </>
+                ) : payment === "razorpay" ? (
+                  `Pay ${inr(totals.total)} with Razorpay`
+                ) : (
+                  `Place Order · ${inr(totals.total)}`
+                )}
               </button>
               <button onClick={() => setStep(2)} className="w-full mt-3 text-sm text-muted-foreground">← Back</button>
             </div>
